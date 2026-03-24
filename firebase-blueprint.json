@@ -1,0 +1,104 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Extended user information stored in Firestore",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["ADMIN", "MEMBER"] },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role", "active"]
+    },
+    "Contact": {
+      "title": "Contact (Client or Supplier)",
+      "description": "Business entities for pickup and delivery",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["CLIENT", "SUPPLIER"] },
+        "addresses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "label": { "type": "string" },
+              "street": { "type": "string" },
+              "city": { "type": "string" },
+              "zip": { "type": "string" },
+              "country": { "type": "string" }
+            }
+          }
+        },
+        "contacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "enum": ["phone", "email"] },
+              "value": { "type": "string" }
+            }
+          }
+        },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "type"]
+    },
+    "Task": {
+      "title": "Pickup or Delivery Task",
+      "description": "Operational task for logistics",
+      "type": "object",
+      "properties": {
+        "contactId": { "type": "string" },
+        "contactName": { "type": "string" },
+        "type": { "type": "string", "enum": ["PICKUP", "DELIVERY"] },
+        "address": { "type": "object" },
+        "dateTime": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["PENDING", "IN_PROGRESS", "COMPLETED"] },
+        "assignedTo": { "type": "string", "description": "UID of the assigned user" },
+        "assignedName": { "type": "string" },
+        "notes": { "type": "string" },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["contactId", "type", "dateTime", "status"]
+    },
+    "Invitation": {
+      "title": "User Invitation",
+      "description": "Token-based invitation for new users",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["ADMIN", "MEMBER"] },
+        "token": { "type": "string" },
+        "used": { "type": "boolean" },
+        "expiresAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "role", "token", "used"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/contacts/{contactId}": {
+      "schema": "Contact",
+      "description": "Clients and suppliers"
+    },
+    "/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Pickup and delivery tasks"
+    },
+    "/invitations/{invitationId}": {
+      "schema": "Invitation",
+      "description": "Pending user invitations"
+    }
+  }
+}

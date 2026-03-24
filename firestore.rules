@@ -1,0 +1,143 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: uid (Firebase Auth UID)
+// Fields:
+//   - uid: string (required) - Firebase Auth UID
+//   - email: string (required) - User email
+//   - name: string (optional) - User display name
+//   - role: string (required) - "ADMIN" or "MEMBER"
+//   - active: bool (required) - Account status
+//   - createdAt: timestamp (required) - Creation date
+//
+// Collection: contacts
+// Document ID: auto-generated
+// Fields:
+//   - name: string (required) - Business name
+//   - type: string (required) - "CLIENT" or "SUPPLIER"
+//   - addresses: list of maps (optional) - { id, label, street, city, zip, country }
+//   - contacts: list of maps (optional) - { type, value }
+//   - notes: string (optional) - General notes
+//   - createdAt: timestamp (required) - Creation date
+//
+// Collection: tasks
+// Document ID: auto-generated
+// Fields:
+//   - contactId: string (required) - Reference to contact
+//   - contactName: string (required) - Denormalized contact name
+//   - type: string (required) - "PICKUP" or "DELIVERY"
+//   - address: map (required) - { label, street, city, zip, country }
+//   - dateTime: timestamp (required) - Scheduled time
+//   - status: string (required) - "PENDING", "IN_PROGRESS", "COMPLETED"
+//   - assignedTo: string (optional) - UID of assigned user
+//   - assignedName: string (optional) - Name of assigned user
+//   - notes: string (optional) - Task notes
+//   - completedAt: timestamp (optional) - Completion time
+//   - createdAt: timestamp (required) - Creation date
+//
+// Collection: invitations
+// Document ID: auto-generated
+// Fields:
+//   - email: string (required) - Invited email
+//   - role: string (required) - "ADMIN" or "MEMBER"
+//   - token: string (required) - Unique invitation token
+//   - used: bool (required) - Whether token was used
+//   - expiresAt: timestamp (required) - Expiration date
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN' ||
+         (request.auth.token.email == "diaform@yahoo.com" && request.auth.token.email_verified == true));
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAssigned(taskData) {
+      return isAuthenticated() && request.auth.uid == taskData.assignedTo;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.uid is string &&
+             data.email is string && isValidEmail(data.email) &&
+             data.role in ['ADMIN', 'MEMBER'] &&
+             data.active is bool &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidContact(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() < 200 &&
+             data.type in ['CLIENT', 'SUPPLIER'] &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidTask(data) {
+      return data.contactId is string &&
+             data.type in ['PICKUP', 'DELIVERY'] &&
+             data.status in ['PENDING', 'IN_PROGRESS', 'COMPLETED'] &&
+             data.dateTime is timestamp &&
+             data.createdAt is timestamp;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && (isOwner(userId) && (request.auth.token.email == "diaform@yahoo.com" || isAdmin())) && isValidUser(request.resource.data);
+      allow update: if isAdmin() && isValidUser(request.resource.data);
+    }
+
+    match /contacts/{contactId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin() && isValidContact(request.resource.data);
+      allow update: if isAdmin() && isValidContact(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /tasks/{taskId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin() && isValidTask(request.resource.data);
+      allow update: if isAuthenticated() && isValidTask(request.resource.data) && 
+                    (isAdmin() || (isAssigned(resource.data) && 
+                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'notes', 'completedAt'])));
+      allow delete: if isAdmin();
+    }
+
+    match /invitations/{invitationId} {
+      allow read: if true; // Needed for token check during setup
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used']));
+    }
+  }
+}

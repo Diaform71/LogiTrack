@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { 
   LayoutDashboard, 
@@ -26,7 +26,15 @@ import Contacts from './pages/Contacts';
 import Calendar from './pages/Calendar';
 import UserManagement from './pages/Users';
 const Login = () => {
-  const { login } = useAuth();
+  const { login, user, profile, loading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && user) {
+      navigate('/');
+    }
+  }, [user, loading, navigate]);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-stone-100">
       <div className="bg-white p-12 rounded-2xl shadow-xl max-w-md w-full text-center">
@@ -34,10 +42,21 @@ const Login = () => {
         <p className="text-stone-500 mb-8">Accedi per gestire i tuoi ritiri e consegne.</p>
         <button 
           onClick={login}
-          className="w-full bg-black text-white py-4 rounded-xl font-medium hover:bg-stone-800 transition-colors flex items-center justify-center gap-3"
+          disabled={loading}
+          className="w-full bg-black text-white py-4 rounded-xl font-medium hover:bg-stone-800 transition-colors flex items-center justify-center gap-3 disabled:opacity-50"
         >
-          <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
-          Accedi con Google
+          {loading ? (
+            <motion.div 
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
+            />
+          ) : (
+            <>
+              <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
+              Accedi con Google
+            </>
+          )}
         </button>
       </div>
     </div>

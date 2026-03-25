@@ -3,9 +3,9 @@ import { collection, onSnapshot, addDoc, updateDoc, doc, Timestamp, query, order
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { UserProfile, Invitation, UserRole } from '../types';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Mail, Shield, CheckCircle2, XCircle, UserPlus, Trash2, ShieldCheck } from 'lucide-react';
+import { Plus, Mail, Shield, CheckCircle2, XCircle, UserPlus, Trash2, ShieldCheck, Copy, Check } from 'lucide-react';
 import { Modal } from '../components/Modal';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 
@@ -14,6 +14,7 @@ export default function UserManagement() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Form State
   const [email, setEmail] = useState('');
@@ -36,6 +37,13 @@ export default function UserManagement() {
     };
   }, [isAdmin]);
 
+  const copyToClipboard = (inv: Invitation) => {
+    const link = `${window.location.origin}/setup?token=${inv.token}`;
+    navigator.clipboard.writeText(link);
+    setCopiedId(inv.id!);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
@@ -54,8 +62,6 @@ export default function UserManagement() {
       await addDoc(collection(db, 'invitations'), invData);
       setIsModalOpen(false);
       setEmail('');
-      // In a real app, you'd send an email here.
-      alert(`Invito creato! Token: ${token}\nInvia questo link: ${window.location.origin}/setup?token=${token}`);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'invitations');
     }
@@ -143,8 +149,30 @@ export default function UserManagement() {
                   <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 bg-stone-50 px-2 py-1 rounded">
                     {inv.role}
                   </span>
-                  <div className="text-xs font-mono bg-stone-100 px-2 py-1 rounded text-stone-600">
-                    {inv.token}
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => copyToClipboard(inv)}
+                      className="flex items-center gap-2 bg-stone-100 hover:bg-stone-200 text-stone-600 px-3 py-2 rounded-xl text-xs font-medium transition-all"
+                    >
+                      {copiedId === inv.id ? (
+                        <>
+                          <Check size={14} className="text-emerald-500" />
+                          Copiato
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={14} />
+                          Copia Link
+                        </>
+                      )}
+                    </button>
+                    <a 
+                      href={`mailto:${inv.email}?subject=Invito a LogiTrack&body=Ciao! Sei stato invitato a unirti al team di LogiTrack come ${inv.role}.%0D%0A%0D%0APer completare la configurazione del tuo account, clicca sul seguente link:%0D%0A${window.location.origin}/setup?token=${inv.token}%0D%0A%0D%0AA presto!`}
+                      className="p-2 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-xl transition-all"
+                      title="Invia via Email"
+                    >
+                      <Mail size={16} />
+                    </a>
                   </div>
                 </div>
               </div>
@@ -153,6 +181,9 @@ export default function UserManagement() {
               <div className="p-12 text-center text-stone-400">Nessun invito pendente.</div>
             )}
           </div>
+          <p className="mt-4 text-xs text-stone-400 px-4">
+            Nota: Le email automatiche non sono ancora configurate. Copia il link e invialo manualmente all'utente.
+          </p>
         </section>
       </div>
 

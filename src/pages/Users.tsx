@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, addDoc, updateDoc, doc, Timestamp, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, doc, Timestamp, query, orderBy, deleteDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { UserProfile, Invitation, UserRole } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -14,6 +14,8 @@ export default function UserManagement() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [invitationToDelete, setInvitationToDelete] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Form State
@@ -64,6 +66,22 @@ export default function UserManagement() {
       setEmail('');
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'invitations');
+    }
+  };
+
+  const deleteInvitation = async (id: string) => {
+    setInvitationToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDeleteInvitation = async () => {
+    if (!invitationToDelete) return;
+    try {
+      await deleteDoc(doc(db, 'invitations', invitationToDelete));
+      setIsDeleteModalOpen(false);
+      setInvitationToDelete(null);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `invitations/${invitationToDelete}`);
     }
   };
 
@@ -173,6 +191,13 @@ export default function UserManagement() {
                     >
                       <Mail size={16} />
                     </a>
+                    <button 
+                      onClick={() => deleteInvitation(inv.id!)}
+                      className="p-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-xl transition-all"
+                      title="Elimina Invito"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -235,6 +260,32 @@ export default function UserManagement() {
             Crea Invito
           </button>
         </form>
+      </Modal>
+
+      <Modal 
+        isOpen={isDeleteModalOpen} 
+        onClose={() => setIsDeleteModalOpen(false)} 
+        title="Elimina Invito"
+      >
+        <div className="space-y-6">
+          <p className="text-stone-600">
+            Sei sicuro di voler eliminare questo invito? L'utente non potrà più utilizzare il link per registrarsi.
+          </p>
+          <div className="flex gap-3">
+            <button 
+              onClick={() => setIsDeleteModalOpen(false)}
+              className="flex-1 px-6 py-3 border border-stone-200 rounded-2xl font-medium hover:bg-stone-50 transition-all"
+            >
+              Annulla
+            </button>
+            <button 
+              onClick={confirmDeleteInvitation}
+              className="flex-1 bg-red-500 text-white px-6 py-3 rounded-2xl font-bold hover:bg-red-600 transition-all shadow-lg shadow-red-500/20"
+            >
+              Elimina
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

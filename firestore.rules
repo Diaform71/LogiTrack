@@ -138,6 +138,7 @@ service cloud.firestore {
       allow read: if true; // Needed for token check during setup
       allow create: if isAdmin();
       allow update: if isAdmin() || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used']));
+      allow delete: if isAdmin();
     }
   }
 }

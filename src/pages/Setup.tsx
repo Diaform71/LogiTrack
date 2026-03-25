@@ -53,8 +53,8 @@ export default function Setup() {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
 
-      if (user.email !== invitation.email) {
-        setError(`Devi accedere con l'email invitata: ${invitation.email}`);
+      if (user.email?.toLowerCase() !== invitation.email.toLowerCase()) {
+        setError(`Devi accedere con l'email invitata: ${invitation.email}. Attualmente sei collegato come ${user.email}.`);
         setLoading(false);
         return;
       }

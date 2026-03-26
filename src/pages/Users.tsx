@@ -39,8 +39,25 @@ export default function UserManagement() {
     };
   }, [isAdmin]);
 
+  const getInviteLink = (token: string) => {
+    let origin = window.location.origin;
+    
+    // If we are in the development environment (ais-dev-), we should use the 
+    // shared app URL (ais-pre-) for invitations, because the dev URL is private
+    // and will return a 403 error for anyone other than the developer.
+    if (origin.includes('ais-dev-')) {
+      origin = origin.replace('ais-dev-', 'ais-pre-');
+    }
+    
+    // Allow override via environment variable if set
+    const envUrl = import.meta.env.VITE_APP_URL;
+    if (envUrl) origin = envUrl;
+    
+    return `${origin}/setup?token=${token}`;
+  };
+
   const copyToClipboard = (inv: Invitation) => {
-    const link = `${window.location.origin}/setup?token=${inv.token}`;
+    const link = getInviteLink(inv.token);
     navigator.clipboard.writeText(link);
     setCopiedId(inv.id!);
     setTimeout(() => setCopiedId(null), 2000);
@@ -53,7 +70,7 @@ export default function UserManagement() {
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
 
     const invData = {
-      email,
+      email: email.trim(),
       role,
       token,
       used: false,
@@ -185,7 +202,12 @@ export default function UserManagement() {
                       )}
                     </button>
                     <a 
-                      href={`mailto:${inv.email}?subject=Invito a LogiTrack&body=Ciao! Sei stato invitato a unirti al team di LogiTrack come ${inv.role}.%0D%0A%0D%0APer completare la configurazione del tuo account, clicca sul seguente link:%0D%0A${window.location.origin}/setup?token=${inv.token}%0D%0A%0D%0AA presto!`}
+                      href={`mailto:${inv.email}?subject=${encodeURIComponent('Invito a LogiTrack')}&body=${encodeURIComponent(
+                        `Ciao! Sei stato invitato a unirti al team di LogiTrack come ${inv.role}.\r\n\r\n` +
+                        `Per completare la configurazione del tuo account, clicca sul seguente link:\r\n` +
+                        `${getInviteLink(inv.token)}\r\n\r\n` +
+                        `A presto!`
+                      )}`}
                       className="p-2 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-xl transition-all"
                       title="Invia via Email"
                     >
@@ -207,7 +229,8 @@ export default function UserManagement() {
             )}
           </div>
           <p className="mt-4 text-xs text-stone-400 px-4">
-            Nota: Le email automatiche non sono ancora configurate. Copia il link e invialo manualmente all'utente.
+            Nota: Per far sì che i link funzionino per gli altri utenti, assicurati di aver <strong>condiviso l'app</strong>. 
+            I link generati in ambiente di sviluppo puntano automaticamente all'URL pubblico (ais-pre).
           </p>
         </section>
       </div>

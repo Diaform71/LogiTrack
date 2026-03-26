@@ -114,8 +114,8 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && (isOwner(userId) && (request.auth.token.email == "diaform@yahoo.com" || isAdmin())) && isValidUser(request.resource.data);
-      allow update: if isAdmin() && isValidUser(request.resource.data);
+      allow create: if isAuthenticated() && isOwner(userId);
+      allow update: if isAdmin();
     }
 
     match /contacts/{contactId} {
@@ -135,9 +135,9 @@ service cloud.firestore {
     }
 
     match /invitations/{invitationId} {
-      allow read: if true; // Needed for token check during setup
+      allow read: if true;
       allow create: if isAdmin();
-      allow update: if isAdmin() || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used']));
+      allow update: if isAdmin() || (isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used']));
       allow delete: if isAdmin();
     }
   }

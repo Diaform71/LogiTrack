@@ -227,10 +227,19 @@ const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
 
 import Setup from './pages/Setup';
 
+const RouteLogger = () => {
+  const location = useLocation();
+  useEffect(() => {
+    console.log('[App] Current location:', location.pathname, location.search, location.hash);
+  }, [location]);
+  return null;
+};
+
 export default function App() {
   return (
     <AuthProvider>
       <Router>
+        <RouteLogger />
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/setup" element={<Setup />} />

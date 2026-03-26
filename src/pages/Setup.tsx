@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs, updateDoc, doc, setDoc, Timestamp } from 'firebase/firestore';
 import { db, auth, googleProvider, handleFirestoreError, OperationType } from '../firebase';
-import { signInWithPopup } from 'firebase/auth';
+import { signInWithPopup, getAdditionalUserInfo } from 'firebase/auth';
 import { Invitation, UserProfile } from '../types';
 import { motion } from 'framer-motion';
 import { CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
@@ -16,6 +16,12 @@ export default function Setup() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [isIframe, setIsIframe] = useState(false);
+
+  useEffect(() => {
+    setIsIframe(window.self !== window.top);
+  }, []);
 
   useEffect(() => {
     const verifyToken = async () => {
@@ -26,14 +32,24 @@ export default function Setup() {
       }
 
       try {
-        const q = query(collection(db, 'invitations'), where('token', '==', token), where('used', '==', false));
+        console.log('Verifica token:', token);
+        const q = query(collection(db, 'invitations'), where('token', '==', token));
         const snapshot = await getDocs(q);
         
         if (snapshot.empty) {
-          setError('Invito non valido o già utilizzato.');
+          console.log('Token non trovato');
+          setError('Invito non valido.');
         } else {
           const invData = snapshot.docs[0].data() as Invitation;
-          setInvitation({ ...invData, id: snapshot.docs[0].id });
+          console.log('Invito trovato:', invData);
+          if (invData.used) {
+            setError('Questo invito è già stato utilizzato.');
+          } else if (invData.expiresAt.toDate() < new Date()) {
+            setError('Questo invito è scaduto.');
+          } else {
+            console.log('Email attesa:', invData.email);
+            setInvitation({ ...invData, id: snapshot.docs[0].id });
+          }
         }
       } catch (err) {
         setError('Errore durante la verifica del token.');
@@ -48,13 +64,44 @@ export default function Setup() {
   const handleSetup = async () => {
     if (!invitation) return;
     setLoading(true);
+    setError(null);
 
     try {
+      // Sign out first to ensure a fresh Google login and avoid session conflicts
+      await auth.signOut();
+      
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
+      const additionalInfo = getAdditionalUserInfo(result);
+      const tokenResult = await user.getIdTokenResult();
+      
+      // Get email from multiple possible sources
+      const userEmail = user.email || 
+                        (additionalInfo?.profile as any)?.email || 
+                        (tokenResult.claims.email as string) ||
+                        (user.providerData && user.providerData[0]?.email);
+      
+      const debug = { 
+        uid: user.uid, 
+        email: user.email,
+        tokenEmail: tokenResult.claims.email,
+        profileEmail: (additionalInfo?.profile as any)?.email,
+        providerData: user.providerData,
+        finalDetectedEmail: userEmail,
+        isIframe: window.self !== window.top
+      };
+      setDebugInfo(debug);
+      console.log('Setup - User signed in:', debug);
 
-      if (user.email?.toLowerCase() !== invitation.email.toLowerCase()) {
-        setError(`Devi accedere con l'email invitata: ${invitation.email}. Attualmente sei collegato come ${user.email}.`);
+      const targetEmail = (invitation.email || '').toLowerCase().trim();
+      const currentEmail = (userEmail || '').toLowerCase().trim();
+
+      if (!currentEmail || currentEmail !== targetEmail) {
+        let msg = `Devi accedere con l'email invitata: ${targetEmail}. Attualmente sei collegato come ${currentEmail || 'nessuna email trovata (null)'}.`;
+        if (!currentEmail && isIframe) {
+          msg += " Nota: Essendo all'interno di un'anteprima (iframe), il browser potrebbe bloccare l'accesso all'email. Prova ad aprire l'app in una nuova scheda.";
+        }
+        setError(msg);
         setLoading(false);
         return;
       }
@@ -62,7 +109,7 @@ export default function Setup() {
       // Create profile
       const profile: UserProfile = {
         uid: user.uid,
-        email: user.email,
+        email: userEmail,
         name: user.displayName || 'Utente',
         role: invitation.role,
         active: true,
@@ -102,7 +149,26 @@ export default function Setup() {
               <AlertCircle size={32} />
             </div>
             <p className="text-red-600 font-medium mb-6">{error}</p>
-            <button onClick={() => navigate('/login')} className="text-stone-400 underline text-sm">Torna al login</button>
+            
+            {isIframe && !debugInfo?.finalDetectedEmail && (
+              <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm text-left">
+                <p className="font-bold mb-1">⚠️ Problema di Privacy del Browser</p>
+                <p>L'anteprima potrebbe bloccare i dati di Google. Clicca sul pulsante in alto a destra (freccia fuori dal quadrato) per aprire l'app in una nuova scheda e riprova.</p>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-3">
+              <button 
+                onClick={() => {
+                  setError(null);
+                  handleSetup();
+                }} 
+                className="bg-black text-white py-3 rounded-xl font-medium hover:bg-stone-800 transition-all"
+              >
+                Riprova con un altro account
+              </button>
+              <button onClick={() => navigate('/login')} className="text-stone-400 underline text-sm">Torna al login</button>
+            </div>
           </div>
         ) : success ? (
           <div className="py-6">

@@ -31,7 +31,9 @@
               "street": { "type": "string" },
               "city": { "type": "string" },
               "zip": { "type": "string" },
-              "country": { "type": "string" }
+              "country": { "type": "string" },
+              "lat": { "type": "number" },
+              "lng": { "type": "number" }
             }
           }
         },

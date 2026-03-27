@@ -8,7 +8,10 @@ import {
   Package, 
   Truck, 
   Clock,
-  MapPin
+  MapPin,
+  Map as MapIcon,
+  Route,
+  Zap
 } from 'lucide-react';
 import { 
   format, 
@@ -26,12 +29,18 @@ import {
 } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Modal } from '../components/Modal';
+import { Map } from '../components/Map';
+import { optimizeRoute } from '../services/routeOptimizer';
 
 export default function Calendar() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedDayTasks, setSelectedDayTasks] = useState<Task[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [isMapModalOpen, setIsMapModalOpen] = useState(false);
+  const [optimizedTasks, setOptimizedTasks] = useState<Task[]>([]);
+  const [isOptimized, setIsOptimized] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, 'tasks'), orderBy('dateTime', 'asc'));
@@ -45,7 +54,15 @@ export default function Calendar() {
   useEffect(() => {
     const dayTasks = tasks.filter(task => isSameDay(task.dateTime.toDate(), selectedDate));
     setSelectedDayTasks(dayTasks);
+    setOptimizedTasks(dayTasks);
+    setIsOptimized(false);
   }, [selectedDate, tasks]);
+
+  const handleOptimize = () => {
+    const optimized = optimizeRoute(selectedDayTasks);
+    setOptimizedTasks(optimized);
+    setIsOptimized(true);
+  };
 
   const renderHeader = () => {
     return (
@@ -219,15 +236,110 @@ export default function Calendar() {
               )}
             </div>
             
-            <button 
-              onClick={() => window.print()}
-              className="w-full mt-8 py-3 border border-stone-200 rounded-xl text-sm font-bold text-stone-600 hover:bg-stone-50 transition-all flex items-center justify-center gap-2"
-            >
-              Stampa Programma
-            </button>
+            <div className="flex gap-2 mt-8">
+              <button 
+                onClick={() => setIsMapModalOpen(true)}
+                className="flex-1 py-3 bg-black text-white rounded-xl text-sm font-bold hover:bg-stone-800 transition-all flex items-center justify-center gap-2"
+              >
+                <MapIcon size={18} />
+                Mappa Percorso
+              </button>
+              <button 
+                onClick={() => window.print()}
+                className="p-3 border border-stone-200 rounded-xl text-stone-600 hover:bg-stone-50 transition-all"
+              >
+                <Clock size={18} />
+              </button>
+            </div>
           </div>
         </aside>
       </div>
+
+      <Modal
+        isOpen={isMapModalOpen}
+        onClose={() => setIsMapModalOpen(false)}
+        title={`Percorso del ${format(selectedDate, 'd MMMM', { locale: it })}`}
+        maxWidth="max-w-4xl"
+      >
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-stone-500">
+              Visualizza i punti di ritiro e consegna sulla mappa.
+            </p>
+            <button
+              onClick={handleOptimize}
+              disabled={isOptimized || selectedDayTasks.length < 2}
+              className={cn(
+                "px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all",
+                isOptimized 
+                  ? "bg-emerald-50 text-emerald-600 border border-emerald-100" 
+                  : "bg-amber-50 text-amber-600 border border-amber-100 hover:bg-amber-100 disabled:opacity-50"
+              )}
+            >
+              <Zap size={14} />
+              {isOptimized ? 'Percorso Ottimizzato' : 'Ottimizza Percorso'}
+            </button>
+          </div>
+
+          <Map 
+            points={optimizedTasks
+              .filter(t => t.address.lat && t.address.lng)
+              .map(t => ({
+                lat: t.address.lat!,
+                lng: t.address.lng!,
+                label: t.contactName,
+                type: t.type
+              }))
+            }
+            showRoute={true}
+            className="h-[500px] w-full rounded-2xl overflow-hidden border border-stone-200 shadow-inner"
+          />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <h3 className="text-sm font-bold text-stone-900 uppercase tracking-widest">Sequenza Fermate</h3>
+              <div className="space-y-2">
+                {optimizedTasks.map((task, index) => (
+                  <div key={task.id} className="flex items-center gap-3 p-3 bg-stone-50 rounded-xl border border-stone-100">
+                    <span className="w-6 h-6 flex items-center justify-center bg-white border border-stone-200 rounded-full text-[10px] font-bold text-stone-400">
+                      {index + 1}
+                    </span>
+                    <div className="flex-1">
+                      <p className="text-xs font-bold text-stone-900">{task.contactName}</p>
+                      <p className="text-[10px] text-stone-500 truncate">{task.address.street}, {task.address.city}</p>
+                    </div>
+                    <div className={cn(
+                      "px-2 py-0.5 rounded-full text-[8px] font-bold uppercase",
+                      task.type === 'PICKUP' ? "bg-blue-100 text-blue-600" : "bg-purple-100 text-purple-600"
+                    )}>
+                      {task.type === 'PICKUP' ? 'Ritiro' : 'Consegna'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div className="bg-stone-50 rounded-2xl p-4 border border-stone-100">
+              <h3 className="text-sm font-bold text-stone-900 uppercase tracking-widest mb-4">Statistiche Percorso</h3>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-stone-500">Totale Fermate</span>
+                  <span className="font-bold">{selectedDayTasks.length}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-stone-500">Punti Geolocalizzati</span>
+                  <span className="font-bold">{selectedDayTasks.filter(t => t.address.lat && t.address.lng).length} / {selectedDayTasks.length}</span>
+                </div>
+                <div className="pt-4 border-t border-stone-200">
+                  <p className="text-[10px] text-stone-400 italic">
+                    * L'ottimizzazione utilizza un algoritmo di prossimità (Greedy Nearest Neighbor) per ridurre la distanza totale tra le tappe.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

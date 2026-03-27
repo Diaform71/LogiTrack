@@ -20,6 +20,8 @@ export interface Address {
   city: string;
   zip: string;
   country: string;
+  lat?: number;
+  lng?: number;
 }
 
 export interface ContactInfo {

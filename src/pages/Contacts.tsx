@@ -3,9 +3,10 @@ import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, Timestamp, q
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { Contact, ContactType, Address, ContactInfo } from '../types';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Search, MapPin, Phone, Mail, MoreVertical, Trash2, Edit2, Building2, User } from 'lucide-react';
+import { Plus, Search, MapPin, Phone, Mail, MoreVertical, Trash2, Edit2, Building2, User, Globe, Loader2 } from 'lucide-react';
 import { Modal } from '../components/Modal';
 import { motion } from 'framer-motion';
+import { geocodeAddress, formatAddressForGeocoding } from '../services/geocodingService';
 
 export default function Contacts() {
   const { isAdmin } = useAuth();
@@ -20,6 +21,7 @@ export default function Contacts() {
   const [notes, setNotes] = useState('');
   const [addresses, setAddresses] = useState<Address[]>([{ id: '1', label: 'Sede Principale', street: '', city: '', zip: '', country: 'Italia' }]);
   const [contactInfos, setContactInfos] = useState<ContactInfo[]>([{ type: 'phone', value: '' }]);
+  const [isGeocoding, setIsGeocoding] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'contacts'), orderBy('name', 'asc'));
@@ -72,6 +74,25 @@ export default function Contacts() {
         handleFirestoreError(error, OperationType.DELETE, 'contacts');
       }
     }
+  };
+
+  const handleGeocode = async (index: number) => {
+    const addr = addresses[index];
+    if (!addr.street || !addr.city) return;
+
+    setIsGeocoding(addr.id);
+    const addressString = formatAddressForGeocoding(addr);
+    const result = await geocodeAddress(addressString);
+
+    if (result) {
+      const newAddr = [...addresses];
+      newAddr[index].lat = result.lat;
+      newAddr[index].lng = result.lng;
+      setAddresses(newAddr);
+    } else {
+      alert('Impossibile trovare le coordinate per questo indirizzo.');
+    }
+    setIsGeocoding(null);
   };
 
   const openEdit = (contact: Contact) => {
@@ -255,6 +276,30 @@ export default function Contacts() {
                     }}
                     className="bg-white border border-stone-200 rounded-lg p-2 text-sm"
                   />
+                </div>
+                <div className="flex items-center justify-between pt-2">
+                  <div className="flex items-center gap-2 text-[10px] font-mono text-stone-400">
+                    {addr.lat && addr.lng ? (
+                      <span className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Globe size={10} />
+                        {addr.lat.toFixed(4)}, {addr.lng.toFixed(4)}
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        <Globe size={10} />
+                        Coordinate non impostate
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isGeocoding === addr.id}
+                    onClick={() => handleGeocode(index)}
+                    className="text-xs font-bold text-black hover:text-stone-600 flex items-center gap-1 disabled:opacity-50"
+                  >
+                    {isGeocoding === addr.id ? <Loader2 size={12} className="animate-spin" /> : <MapPin size={12} />}
+                    Geolocalizza
+                  </button>
                 </div>
               </div>
             ))}

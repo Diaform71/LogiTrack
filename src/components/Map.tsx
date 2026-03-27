@@ -28,15 +28,58 @@ interface MapProps {
   className?: string;
 }
 
+// Custom icon for numbered markers
+const createNumberedIcon = (number: number, type?: 'PICKUP' | 'DELIVERY') => {
+  const color = type === 'PICKUP' ? '#f59e0b' : '#3b82f6'; // Amber-500 or Blue-500
+  
+  return L.divIcon({
+    className: 'custom-div-icon',
+    html: `
+      <div style="
+        background-color: ${color};
+        width: 30px;
+        height: 30px;
+        border-radius: 50% 50% 50% 0;
+        transform: rotate(-45deg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      ">
+        <div style="
+          transform: rotate(45deg);
+          color: white;
+          font-weight: bold;
+          font-size: 12px;
+          font-family: sans-serif;
+        ">${number}</div>
+      </div>
+    `,
+    iconSize: [30, 30],
+    iconAnchor: [15, 30],
+    popupAnchor: [0, -30]
+  });
+};
+
 // Component to auto-center the map when points change
 const ChangeView: React.FC<{ points: MapPoint[] }> = ({ points }) => {
   const map = useMap();
   
   useEffect(() => {
     if (points.length > 0) {
-      const bounds = L.latLngBounds(points.map(p => [p.lat, p.lng]));
-      map.fitBounds(bounds, { padding: [50, 50] });
+      if (points.length === 1) {
+        map.setView([points[0].lat, points[0].lng], 15);
+      } else {
+        const bounds = L.latLngBounds(points.map(p => [p.lat, p.lng]));
+        map.fitBounds(bounds, { padding: [50, 50] });
+      }
     }
+    
+    // Fix for Leaflet not rendering correctly in some containers
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
   }, [points, map]);
 
   return null;
@@ -63,15 +106,19 @@ export const Map: React.FC<MapProps> = ({ points, showRoute = false, className =
         />
         
         {points.map((point, index) => (
-          <Marker key={`${point.lat}-${point.lng}-${index}`} position={[point.lat, point.lng]}>
+          <Marker 
+            key={`${point.lat}-${point.lng}-${index}`} 
+            position={[point.lat, point.lng]}
+            icon={createNumberedIcon(index + 1, point.type)}
+          >
             <Popup>
               <div className="p-1">
-                <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full mb-1 inline-block ${
+                <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full mb-1 inline-block ${
                   point.type === 'PICKUP' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
                 }`}>
-                  {point.type || 'PUNTO'}
+                  {index + 1}. {point.type || 'PUNTO'}
                 </span>
-                <p className="font-medium text-stone-900">{point.label}</p>
+                <p className="font-medium text-stone-900 text-sm">{point.label}</p>
               </div>
             </Popup>
           </Marker>

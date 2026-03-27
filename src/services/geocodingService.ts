@@ -16,9 +16,12 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult | n
         q: address,
         format: 'json',
         limit: 1,
+        addressdetails: 1,
+        countrycodes: 'it', // Restrict to Italy as per app context
       },
       headers: {
-        'Accept-Language': 'it', // Prefer Italian results if available
+        'Accept-Language': 'it',
+        'User-Agent': 'AisApp/1.0' // Good practice for Nominatim
       }
     });
 

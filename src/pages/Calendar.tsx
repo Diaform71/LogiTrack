@@ -299,23 +299,32 @@ export default function Calendar() {
             <div className="space-y-3">
               <h3 className="text-sm font-bold text-stone-900 uppercase tracking-widest">Sequenza Fermate</h3>
               <div className="space-y-2">
-                {optimizedTasks.map((task, index) => (
-                  <div key={task.id} className="flex items-center gap-3 p-3 bg-stone-50 rounded-xl border border-stone-100">
-                    <span className="w-6 h-6 flex items-center justify-center bg-white border border-stone-200 rounded-full text-[10px] font-bold text-stone-400">
-                      {index + 1}
-                    </span>
-                    <div className="flex-1">
-                      <p className="text-xs font-bold text-stone-900">{task.contactName}</p>
-                      <p className="text-[10px] text-stone-500 truncate">{task.address.street}, {task.address.city}</p>
+                {optimizedTasks
+                  .filter(t => t.address.lat && t.address.lng)
+                  .map((task, index) => (
+                    <div key={task.id} className="flex items-center gap-3 p-3 bg-stone-50 rounded-xl border border-stone-100">
+                      <span className={`w-6 h-6 flex items-center justify-center rounded-full text-[10px] font-bold text-white ${
+                        task.type === 'PICKUP' ? 'bg-amber-500' : 'bg-blue-500'
+                      }`}>
+                        {index + 1}
+                      </span>
+                      <div className="flex-1">
+                        <p className="text-xs font-bold text-stone-900">{task.contactName}</p>
+                        <p className="text-[10px] text-stone-500 truncate">{task.address.street}, {task.address.city}</p>
+                      </div>
+                      <div className={cn(
+                        "px-2 py-0.5 rounded-full text-[8px] font-bold uppercase",
+                        task.type === 'PICKUP' ? "bg-blue-100 text-blue-600" : "bg-purple-100 text-purple-600"
+                      )}>
+                        {task.type === 'PICKUP' ? 'Ritiro' : 'Consegna'}
+                      </div>
                     </div>
-                    <div className={cn(
-                      "px-2 py-0.5 rounded-full text-[8px] font-bold uppercase",
-                      task.type === 'PICKUP' ? "bg-blue-100 text-blue-600" : "bg-purple-100 text-purple-600"
-                    )}>
-                      {task.type === 'PICKUP' ? 'Ritiro' : 'Consegna'}
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                {optimizedTasks.some(t => !t.address.lat || !t.address.lng) && (
+                  <p className="text-[10px] text-stone-400 italic pt-2">
+                    * {optimizedTasks.filter(t => !t.address.lat || !t.address.lng).length} attività non geolocalizzate sono state omesse dalla mappa.
+                  </p>
+                )}
               </div>
             </div>
             

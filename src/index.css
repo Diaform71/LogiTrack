@@ -28,3 +28,9 @@ h1, h2, h3, h4 {
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-stone-400;
 }
+
+/* Leaflet Custom Markers */
+.custom-div-icon {
+  background: none !important;
+  border: none !important;
+}

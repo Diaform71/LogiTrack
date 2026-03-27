@@ -7,6 +7,7 @@ import { Plus, Search, MapPin, Phone, Mail, MoreVertical, Trash2, Edit2, Buildin
 import { Modal } from '../components/Modal';
 import { motion } from 'framer-motion';
 import { geocodeAddress, formatAddressForGeocoding } from '../services/geocodingService';
+import { Map } from '../components/Map';
 
 export default function Contacts() {
   const { isAdmin } = useAuth();
@@ -304,6 +305,24 @@ export default function Contacts() {
               </div>
             ))}
           </div>
+
+          {addresses.some(a => a.lat && a.lng) && (
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-stone-700">Anteprima Posizione</label>
+              <Map 
+                points={addresses
+                  .filter(a => a.lat && a.lng)
+                  .map(a => ({
+                    lat: a.lat!,
+                    lng: a.lng!,
+                    label: a.label || 'Indirizzo',
+                    type: 'PICKUP' // Default color for preview
+                  }))
+                }
+                className="h-[200px] w-full rounded-xl overflow-hidden border border-stone-200"
+              />
+            </div>
+          )}
 
           <div className="space-y-4">
             <div className="flex justify-between items-center">

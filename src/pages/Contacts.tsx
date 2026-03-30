@@ -375,25 +375,33 @@ export default function Contacts() {
             ))}
           </div>
 
-          {addresses.some(a => a.lat && a.lng) && (
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-stone-700">Anteprima Posizione</label>
-              <MapErrorBoundary>
-                <Map 
-                  points={addresses
-                    .filter(a => a.lat && a.lng)
-                    .map(a => ({
-                      lat: a.lat!,
-                      lng: a.lng!,
-                      label: a.label || 'Indirizzo',
-                      type: 'PICKUP' // Default color for preview
-                    }))
-                  }
-                  className="h-[200px] w-full rounded-xl overflow-hidden border border-stone-200"
-                />
-              </MapErrorBoundary>
+          <div className="space-y-4 pt-4 border-t border-stone-100">
+            <label className="text-sm font-semibold text-stone-700">Anteprima Posizione</label>
+            <div className="relative min-h-[200px]">
+              {addresses.some(a => a.lat && a.lng) ? (
+                <MapErrorBoundary key="map-section">
+                  <Map 
+                    key={`map-instance-${addresses.filter(a => a.lat && a.lng).length}`}
+                    points={addresses
+                      .filter(a => a.lat && a.lng)
+                      .map(a => ({
+                        lat: a.lat!,
+                        lng: a.lng!,
+                        label: a.label || 'Indirizzo',
+                        type: 'PICKUP'
+                      }))
+                    }
+                    className="h-[200px] w-full rounded-xl overflow-hidden border border-stone-200"
+                  />
+                </MapErrorBoundary>
+              ) : (
+                <div className="h-[200px] w-full rounded-xl bg-stone-50 border border-stone-100 flex flex-col items-center justify-center text-center p-6">
+                  <Globe className="text-stone-300 mb-2" size={24} />
+                  <p className="text-xs text-stone-400">Geolocalizza un indirizzo per visualizzare l'anteprima sulla mappa.</p>
+                </div>
+              )}
             </div>
-          )}
+          </div>
 
           <div className="space-y-4">
             <div className="flex justify-between items-center">

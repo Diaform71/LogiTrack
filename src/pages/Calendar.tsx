@@ -316,7 +316,7 @@ export default function Calendar() {
 
           <MapErrorBoundary>
             <Map 
-              key={`calendar-map-${optimizedTasks.filter(t => t.address.lat && t.address.lng).length}`}
+              key={`calendar-map-${optimizedTasks.filter(t => t.address.lat && t.address.lng).map(t => `${t.address.lat}-${t.address.lng}`).join('-')}`}
               points={optimizedTasks
                 .filter(t => t.address.lat && t.address.lng)
                 .map(t => ({

@@ -381,7 +381,7 @@ export default function Contacts() {
               {addresses.some(a => a.lat && a.lng) ? (
                 <MapErrorBoundary key="map-section">
                   <Map 
-                    key={`map-instance-${addresses.filter(a => a.lat && a.lng).length}`}
+                    key={`map-instance-${addresses.filter(a => a.lat && a.lng).map(a => `${a.lat}-${a.lng}`).join('-')}`}
                     points={addresses
                       .filter(a => a.lat && a.lng)
                       .map(a => ({

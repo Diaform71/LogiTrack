@@ -9,6 +9,73 @@ import { motion } from 'framer-motion';
 import { geocodeAddress, formatAddressForGeocoding } from '../services/geocodingService';
 import { Map } from '../components/Map';
 
+// General Error Boundary
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: any }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error("[ErrorBoundary] Error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-10 text-center">
+          <h2 className="text-xl font-bold mb-4">Si è verificato un errore.</h2>
+          <p className="text-stone-500 mb-6">{this.state.error?.message || "Errore sconosciuto"}</p>
+          <button 
+            onClick={() => this.setState({ hasError: false })}
+            className="bg-black text-white px-6 py-2 rounded-xl"
+          >
+            Riprova
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// Error Boundary for Map
+class MapErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error("[MapErrorBoundary] Error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="h-[200px] w-full flex flex-col items-center justify-center bg-stone-50 border border-stone-200 rounded-xl p-4 text-center">
+          <p className="text-sm text-stone-500 mb-2">Errore nel caricamento della mappa.</p>
+          <button 
+            onClick={() => this.setState({ hasError: false })}
+            className="text-xs text-blue-500 hover:underline"
+          >
+            Riprova
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function Contacts() {
   const { isAdmin } = useAuth();
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -97,6 +164,7 @@ export default function Contacts() {
   };
 
   const openEdit = (contact: Contact) => {
+    console.log(`[Contacts] Opening edit for ${contact.name}`);
     setEditingContact(contact);
     setName(contact.name);
     setType(contact.type);
@@ -199,8 +267,9 @@ export default function Contacts() {
         onClose={() => setIsModalOpen(false)} 
         title={editingContact ? "Modifica Contatto" : "Nuovo Contatto"}
       >
-        <form onSubmit={handleSave} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <ErrorBoundary>
+          <form onSubmit={handleSave} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-semibold text-stone-700">Ragione Sociale</label>
               <input 
@@ -309,18 +378,20 @@ export default function Contacts() {
           {addresses.some(a => a.lat && a.lng) && (
             <div className="space-y-2">
               <label className="text-sm font-semibold text-stone-700">Anteprima Posizione</label>
-              <Map 
-                points={addresses
-                  .filter(a => a.lat && a.lng)
-                  .map(a => ({
-                    lat: a.lat!,
-                    lng: a.lng!,
-                    label: a.label || 'Indirizzo',
-                    type: 'PICKUP' // Default color for preview
-                  }))
-                }
-                className="h-[200px] w-full rounded-xl overflow-hidden border border-stone-200"
-              />
+              <MapErrorBoundary>
+                <Map 
+                  points={addresses
+                    .filter(a => a.lat && a.lng)
+                    .map(a => ({
+                      lat: a.lat!,
+                      lng: a.lng!,
+                      label: a.label || 'Indirizzo',
+                      type: 'PICKUP' // Default color for preview
+                    }))
+                  }
+                  className="h-[200px] w-full rounded-xl overflow-hidden border border-stone-200"
+                />
+              </MapErrorBoundary>
             </div>
           )}
 
@@ -379,7 +450,8 @@ export default function Contacts() {
             {editingContact ? "Salva Modifiche" : "Crea Contatto"}
           </button>
         </form>
-      </Modal>
+      </ErrorBoundary>
+    </Modal>
     </div>
   );
 }

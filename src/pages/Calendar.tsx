@@ -33,6 +33,39 @@ import { Modal } from '../components/Modal';
 import { Map } from '../components/Map';
 import { optimizeRoute } from '../services/routeOptimizer';
 
+// Error Boundary for Map
+class MapErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error("[MapErrorBoundary] Error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="h-[400px] w-full flex flex-col items-center justify-center bg-stone-50 border border-stone-200 rounded-xl p-4 text-center">
+          <p className="text-sm text-stone-500 mb-2">Errore nel caricamento della mappa.</p>
+          <button 
+            onClick={() => this.setState({ hasError: false })}
+            className="text-xs text-blue-500 hover:underline"
+          >
+            Riprova
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function Calendar() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -281,19 +314,21 @@ export default function Calendar() {
             </button>
           </div>
 
-          <Map 
-            points={optimizedTasks
-              .filter(t => t.address.lat && t.address.lng)
-              .map(t => ({
-                lat: t.address.lat!,
-                lng: t.address.lng!,
-                label: t.contactName,
-                type: t.type
-              }))
-            }
-            showRoute={true}
-            className="h-[500px] w-full rounded-2xl overflow-hidden border border-stone-200 shadow-inner"
-          />
+          <MapErrorBoundary>
+            <Map 
+              points={optimizedTasks
+                .filter(t => t.address.lat && t.address.lng)
+                .map(t => ({
+                  lat: t.address.lat!,
+                  lng: t.address.lng!,
+                  label: t.contactName,
+                  type: t.type
+                }))
+              }
+              showRoute={true}
+              className="h-[500px] w-full rounded-2xl overflow-hidden border border-stone-200 shadow-inner"
+            />
+          </MapErrorBoundary>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-3">

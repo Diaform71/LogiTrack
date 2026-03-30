@@ -30,36 +30,23 @@ interface MapProps {
 
 // Custom icon for numbered markers
 const createNumberedIcon = (number: number, type?: 'PICKUP' | 'DELIVERY') => {
-  const color = type === 'PICKUP' ? '#f59e0b' : '#3b82f6'; // Amber-500 or Blue-500
-  
-  return L.divIcon({
-    className: 'custom-div-icon',
-    html: `
-      <div style="
-        background-color: ${color};
-        width: 30px;
-        height: 30px;
-        border-radius: 50% 50% 50% 0;
-        transform: rotate(-45deg);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: 2px solid white;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-      ">
-        <div style="
-          transform: rotate(45deg);
-          color: white;
-          font-weight: bold;
-          font-size: 12px;
-          font-family: sans-serif;
-        ">${number}</div>
-      </div>
-    `,
-    iconSize: [30, 30],
-    iconAnchor: [15, 30],
-    popupAnchor: [0, -30]
-  });
+  try {
+    const color = type === 'PICKUP' ? '#f59e0b' : '#3b82f6'; // Amber-500 or Blue-500
+    
+    // Use single line for HTML to avoid potential issues with newlines in some mobile browsers
+    const html = `<div style="background-color:${color};width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);"><div style="transform:rotate(45deg);color:white;font-weight:bold;font-size:12px;font-family:sans-serif;">${number}</div></div>`;
+
+    return L.divIcon({
+      className: 'custom-div-icon',
+      html: html,
+      iconSize: [30, 30],
+      iconAnchor: [15, 30],
+      popupAnchor: [0, -30]
+    });
+  } catch (error) {
+    console.error("[Map] Error creating icon:", error);
+    return new L.Icon.Default(); // Fallback to default icon
+  }
 };
 
 // Component to auto-center the map when points change
@@ -67,26 +54,40 @@ const ChangeView: React.FC<{ points: MapPoint[] }> = ({ points }) => {
   const map = useMap();
   
   useEffect(() => {
+    if (!map) return;
+
     if (points.length > 0) {
-      if (points.length === 1) {
-        map.setView([points[0].lat, points[0].lng], 15);
-      } else {
-        const bounds = L.latLngBounds(points.map(p => [p.lat, p.lng]));
-        map.fitBounds(bounds, { padding: [50, 50] });
+      try {
+        if (points.length === 1) {
+          map.setView([points[0].lat, points[0].lng], 15);
+        } else {
+          const bounds = L.latLngBounds(points.map(p => [p.lat, p.lng]));
+          map.fitBounds(bounds, { padding: [50, 50] });
+        }
+      } catch (error) {
+        console.error("[Map] Error setting view/bounds:", error);
       }
     }
     
     // Fix for Leaflet not rendering correctly in some containers
-    setTimeout(() => {
-      map.invalidateSize();
+    const timer = setTimeout(() => {
+      try {
+        map.invalidateSize();
+      } catch (e) {
+        // Ignore
+      }
     }, 100);
+
+    return () => clearTimeout(timer);
   }, [points, map]);
 
   return null;
 };
 
 export const Map: React.FC<MapProps> = ({ points, showRoute = false, className = "h-[400px] w-full rounded-2xl overflow-hidden shadow-inner border border-stone-200" }) => {
-  const center: [number, number] = points.length > 0 
+  console.log(`[Map] Rendering with ${points.length} points`);
+
+  const center: [number, number] = points.length > 0 && points[0].lat && points[0].lng
     ? [points[0].lat, points[0].lng] 
     : [41.9028, 12.4964]; // Default to Rome, Italy
 

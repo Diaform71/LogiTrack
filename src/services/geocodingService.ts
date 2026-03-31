@@ -6,10 +6,40 @@ export interface GeocodeResult {
   display_name: string;
 }
 
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
 /**
- * Geocodes an address string using OpenStreetMap Nominatim API.
+ * Geocodes an address string using Google Geocoding API or Nominatim as fallback.
  */
 export async function geocodeAddress(address: string): Promise<GeocodeResult | null> {
+  // Try Google Geocoding API if key is available
+  if (GOOGLE_MAPS_API_KEY) {
+    try {
+      const response = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
+        params: {
+          address: address,
+          key: GOOGLE_MAPS_API_KEY,
+          language: 'it',
+          region: 'it'
+        }
+      });
+
+      if (response.data.status === 'OK' && response.data.results.length > 0) {
+        const result = response.data.results[0];
+        return {
+          lat: result.geometry.location.lat,
+          lng: result.geometry.location.lng,
+          display_name: result.formatted_address,
+        };
+      } else {
+        console.warn('Google Geocoding API returned status:', response.data.status);
+      }
+    } catch (error) {
+      console.error('Google Geocoding error:', error);
+    }
+  }
+
+  // Fallback to Nominatim
   try {
     const response = await axios.get('https://nominatim.openstreetmap.org/search', {
       params: {
@@ -17,11 +47,11 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult | n
         format: 'json',
         limit: 1,
         addressdetails: 1,
-        countrycodes: 'it', // Restrict to Italy as per app context
+        countrycodes: 'it',
       },
       headers: {
         'Accept-Language': 'it',
-        'User-Agent': 'AisApp/1.0' // Good practice for Nominatim
+        'User-Agent': 'AisApp/1.0'
       }
     });
 
@@ -35,7 +65,7 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult | n
     }
     return null;
   } catch (error) {
-    console.error('Geocoding error:', error);
+    console.error('Nominatim Geocoding error:', error);
     return null;
   }
 }

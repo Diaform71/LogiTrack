@@ -54,44 +54,75 @@ const ChangeView: React.FC<{ points: MapPoint[] }> = ({ points }) => {
   const map = useMap();
   
   useEffect(() => {
-    if (!map) return;
+    if (!map || points.length === 0) return;
 
-    if (points.length > 0) {
+    const updateView = () => {
       try {
         if (points.length === 1) {
           map.setView([points[0].lat, points[0].lng], 15);
         } else {
-          const bounds = L.latLngBounds(points.map(p => [p.lat, p.lng]));
-          map.fitBounds(bounds, { padding: [50, 50] });
+          const validPoints = points.filter(p => p.lat && p.lng);
+          if (validPoints.length > 0) {
+            const bounds = L.latLngBounds(validPoints.map(p => [p.lat, p.lng]));
+            map.fitBounds(bounds, { padding: [50, 50] });
+          }
         }
+        
+        // Ensure size is correct after a short delay to allow for container animations
+        setTimeout(() => {
+          if (map) map.invalidateSize();
+        }, 200);
       } catch (error) {
-        console.error("[Map] Error setting view/bounds:", error);
+        console.error("[Map] Error updating view:", error);
       }
-    }
-    
-    // Fix for Leaflet not rendering correctly in some containers
-    const timer = setTimeout(() => {
-      try {
-        map.invalidateSize();
-      } catch (e) {
-        // Ignore
-      }
-    }, 100);
+    };
 
-    return () => clearTimeout(timer);
+    updateView();
   }, [points, map]);
 
   return null;
 };
 
-export const Map: React.FC<MapProps> = ({ points, showRoute = false, className = "h-[400px] w-full rounded-2xl overflow-hidden shadow-inner border border-stone-200" }) => {
+export const Map = React.memo<MapProps>(({ points, showRoute = false, className = "h-[400px] w-full rounded-2xl overflow-hidden shadow-inner border border-stone-200" }) => {
   console.log(`[Map] Rendering with ${points.length} points`);
 
-  const center: [number, number] = points.length > 0 && points[0].lat && points[0].lng
-    ? [points[0].lat, points[0].lng] 
-    : [41.9028, 12.4964]; // Default to Rome, Italy
+  const center: [number, number] = React.useMemo(() => {
+    if (points.length > 0 && points[0].lat && points[0].lng) {
+      return [points[0].lat, points[0].lng];
+    }
+    return [41.9028, 12.4964]; // Default to Rome, Italy
+  }, [points]);
 
-  const routePoints: [number, number][] = points.map(p => [p.lat, p.lng]);
+  const routePoints: [number, number][] = React.useMemo(() => 
+    points.filter(p => p.lat && p.lng).map(p => [p.lat, p.lng] as [number, number]), 
+    [points]
+  );
+
+  const markers = React.useMemo(() => {
+    return points
+      .filter(p => p.lat && p.lng)
+      .map((point, index) => (
+        <Marker 
+          key={`${point.lat}-${point.lng}-${index}`} 
+          position={[point.lat, point.lng]}
+          icon={createNumberedIcon(index + 1, point.type)}
+        >
+          <Popup>
+            <div className="p-1">
+              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full mb-1 inline-block ${
+                point.type === 'PICKUP' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+              }`}>
+                {index + 1}. {point.type || 'PUNTO'}
+              </span>
+              <p className="font-medium text-stone-900 text-sm">{point.label}</p>
+            </div>
+          </Popup>
+        </Marker>
+      ));
+  }, [points]);
+
+  // If no valid points, show a placeholder or empty map
+  const hasValidPoints = points.some(p => p.lat && p.lng);
 
   return (
     <div className={className}>
@@ -100,32 +131,17 @@ export const Map: React.FC<MapProps> = ({ points, showRoute = false, className =
         zoom={13} 
         scrollWheelZoom={false}
         style={{ height: '100%', width: '100%' }}
+        // Use a stable key for the container to avoid unnecessary remounts
+        key="map-container"
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         
-        {points.map((point, index) => (
-          <Marker 
-            key={`${point.lat}-${point.lng}-${index}`} 
-            position={[point.lat, point.lng]}
-            icon={createNumberedIcon(index + 1, point.type)}
-          >
-            <Popup>
-              <div className="p-1">
-                <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full mb-1 inline-block ${
-                  point.type === 'PICKUP' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
-                }`}>
-                  {index + 1}. {point.type || 'PUNTO'}
-                </span>
-                <p className="font-medium text-stone-900 text-sm">{point.label}</p>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+        {markers}
 
-        {showRoute && points.length > 1 && (
+        {showRoute && routePoints.length > 1 && (
           <Polyline 
             positions={routePoints} 
             color="#000" 
@@ -139,4 +155,4 @@ export const Map: React.FC<MapProps> = ({ points, showRoute = false, className =
       </MapContainer>
     </div>
   );
-};
+});
